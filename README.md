@@ -34,5 +34,7 @@
 
 ## v2 proposal
 
+- create a pattern/class object oriented programing to btter arra nge my code .
+- can need to update your code .
 - create a endpoint to create new thread.
 - create user signin and signup
