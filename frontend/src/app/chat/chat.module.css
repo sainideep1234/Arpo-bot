@@ -156,7 +156,8 @@
 .messagesContainer {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 28px 32px;
+  scroll-behavior: smooth;
 }
 
 /* ───── Empty State ───── */
@@ -221,23 +222,37 @@
 .messagesList {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-width: 800px;
+  gap: 8px;
+  max-width: 860px;
   margin: 0 auto;
   width: 100%;
 }
 
 .message {
   display: flex;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
+  gap: 14px;
+  padding: 20px 18px;
+  border-radius: 14px;
   animation: fadeIn 0.3s ease-out;
-  transition: background 0.15s;
+  transition: background 0.2s;
+  border-left: 3px solid transparent;
 }
 
 .message:hover {
-  background: var(--glass);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.userMsg {
+  border-left-color: transparent;
+}
+
+.agentMsg {
+  border-left-color: var(--accent);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.agentMsg:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .userMsg .messageAvatar {
@@ -251,14 +266,15 @@
 }
 
 .messageAvatar {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-top: 2px;
+  font-size: 16px;
 }
 
 .messageBody {
@@ -274,14 +290,16 @@
 }
 
 .messageSender {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: 0.01em;
 }
 
 .messageTime {
   font-size: 11px;
   color: var(--text-muted);
+  opacity: 0.7;
 }
 
 .messageImage {
@@ -294,15 +312,16 @@
 }
 
 .messageText {
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: 15px;
+  line-height: 1.7;
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
+  letter-spacing: 0.01em;
 }
 
 .agentMsg .messageText {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* ───── Sources ───── */
@@ -525,12 +544,12 @@
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  padding: 6px 4px !important;
-  font-size: 14px;
+  padding: 8px 4px !important;
+  font-size: 15px;
   resize: none;
-  min-height: 24px;
-  max-height: 120px;
-  line-height: 1.5;
+  min-height: 26px;
+  max-height: 140px;
+  line-height: 1.55;
 }
 
 .textInput:focus {
