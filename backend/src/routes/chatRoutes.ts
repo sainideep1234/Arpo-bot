@@ -1,15 +1,19 @@
 import { Router, type Request, type Response } from "express";
 import { MessageSchema } from "../utils/types";
 import { Messages } from "../models/db_models";
-import { embeddings, vectorStore } from "../utils/vector";
+import { vectorStore } from "../utils/vector";
 import { callLlm, describeImage } from "../utils/openai";
-import upload from "../utils/multer";
+import upload, { deleteFile } from "../utils/multer";
 
 const chatRouter = Router();
+
 export interface RetrivedDocs {
   confidenceScore: string;
   content: string;
   metaData: string;
+  sourceFile: string;
+  pageNumber: number | null;
+  chunkIndex: number | null;
 }
 
 chatRouter.get("/chats", async (req: Request, res: Response) => {
@@ -38,6 +42,7 @@ chatRouter.get("/chats", async (req: Request, res: Response) => {
     });
   }
 });
+
 chatRouter.post(
   "/chats",
   upload.single("image"),
@@ -51,24 +56,21 @@ chatRouter.post(
         });
       }
 
-      const { messageType, message, imageUrl, role } = data;
+      const { messageType, message, role } = data;
+      const imagePath = req.file?.path;
 
       // Step 1: Save the user's message to MongoDB
-      const saveToDb: any = {
+      const saveUserMessage = await Messages.create({
         role,
         message_description: message,
-      };
-      if (messageType === "image") {
-        saveToDb.image_url = imageUrl;
-      }
-      const saveUserMessage = await Messages.create(saveToDb);
+      });
 
       // Step 2: Determine the search query for the vector store
       let searchQuery: string;
 
-      if (messageType === "image" && imageUrl) {
+      if (messageType === "image" && imagePath) {
         // Image flow: LLM describes the image first, use that as the search query
-        const imageDescription = await describeImage(imageUrl);
+        const imageDescription = await describeImage(imagePath);
         if (!imageDescription) {
           return res.status(500).json({
             success: false,
@@ -99,12 +101,15 @@ chatRouter.post(
 
       for (const [doc, score] of similaritySearchWithScoreResults) {
         console.log(
-          `* [SIM=${score.toFixed(3)}] ${doc.pageContent} [${JSON.stringify(doc.metadata)}]`,
+          `* [SIM=${score.toFixed(3)}] ${doc.pageContent.slice(0, 80)}... [${doc.metadata?.sourceFile || "unknown"}]`,
         );
         retrivedDocs.push({
           confidenceScore: score.toFixed(3),
           content: doc.pageContent,
           metaData: JSON.stringify(doc.metadata),
+          sourceFile: doc.metadata?.sourceFile || "Unknown source",
+          pageNumber: doc.metadata?.pageNumber ?? null,
+          chunkIndex: doc.metadata?.chunkIndex ?? null,
         });
       }
 
@@ -113,7 +118,7 @@ chatRouter.post(
         retrivedDocs,
         query: message || searchQuery,
         role: "user",
-        ...(messageType === "image" && imageUrl && { imageUrl }),
+        ...(messageType === "image" && imagePath && { imageUrl: imagePath }),
       });
 
       if (!llmResponse) {
@@ -129,7 +134,12 @@ chatRouter.post(
         message_description: llmResponse,
       });
 
-      // Step 6: Return the response
+      // Step 6: Cleanup uploaded file
+      if (imagePath) {
+        deleteFile(imagePath);
+      }
+
+      // Step 7: Return the response
       return res.status(200).json({
         success: true,
         data: {
@@ -140,6 +150,10 @@ chatRouter.post(
         },
       });
     } catch (error) {
+      // Cleanup file on error too
+      if (req.file?.path) {
+        deleteFile(req.file.path);
+      }
       console.log("[ERROR]", error);
       res.status(500).json({
         success: false,
@@ -148,8 +162,5 @@ chatRouter.post(
     }
   },
 );
-
-// TO DO : do i need a endpoint to create a thread
-chatRouter.get("/chats", (req: Request, res: Response) => {});
 
 export default chatRouter;

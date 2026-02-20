@@ -1,11 +1,12 @@
-import type { password } from "bun";
-import mongoose, { Schema, model, models } from "mongoose";
-import { email } from "zod";
+import mongoose from "mongoose";
+
+const { Schema, model } = mongoose;
 
 const userSchema = new Schema({
   name: { type: String },
   email: { type: String, unique: true },
-  password: { type: String, unique: true },
+  password: { type: String },
+  role: { type: String, enum: ["user", "admin"], default: "user" },
   thread_id: [{ type: Schema.Types.ObjectId, ref: "Threads" }],
 });
 const threadSchema = new Schema({
@@ -16,7 +17,6 @@ const threadSchema = new Schema({
 
 const messageSchema = new Schema({
   message_description: { type: String },
-  image_url: { type: String },
   role: { type: String, enum: ["agent", "user", "developer"] },
   thread_id: { type: Schema.Types.ObjectId, ref: "Threads" },
 });

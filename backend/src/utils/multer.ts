@@ -1,20 +1,57 @@
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 
-const uploadDir = path.join(process.cwd(), "src", "image");
+const imagedDir = path.join(process.cwd(), "src", "assests", "image");
+const pdfDir = path.join(process.cwd(), "src", "assests", "pdf");
+
+// Ensure directories exist
+if (!existsSync(imagedDir)) mkdirSync(imagedDir, { recursive: true });
+if (!existsSync(pdfDir)) mkdirSync(pdfDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadDir);
+    if (file.mimetype === "application/pdf") {
+      cb(null, pdfDir);
+    } else {
+      cb(null, imagedDir);
+    }
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix);
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, file.fieldname + "-" + uniqueSuffix + ext);
   },
 });
 
-const upload = multer({ storage: storage });
+// File filter: only allow PDFs and images
+const fileFilter: multer.Options["fileFilter"] = (req, file, cb) => {
+  const allowedMimes = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "image/bmp",
+  ];
+
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type ${file.mimetype} is not supported`));
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20 MB per file
+    files: 10, // max 10 files per request
+  },
+});
 
 // Immediately delete a single file after you're done processing it
 export function deleteFile(filePath: string) {
@@ -33,12 +70,27 @@ export function startCleanupScheduler(
   maxAgeMs: number = 60 * 60 * 1000, // delete files older than 1 hour
 ) {
   setInterval(() => {
-    fs.readdir(uploadDir, (err, files) => {
+    fs.readdir(imagedDir, (err, files) => {
       if (err) return console.error("Cleanup error:", err);
 
       const now = Date.now();
       for (const file of files) {
-        const filePath = path.join(uploadDir, file);
+        const filePath = path.join(imagedDir, file);
+        fs.stat(filePath, (err, stats) => {
+          if (err) return;
+          const fileAge = now - stats.mtimeMs;
+          if (fileAge > maxAgeMs) {
+            deleteFile(filePath);
+          }
+        });
+      }
+    });
+    fs.readdir(pdfDir, (err, files) => {
+      if (err) return console.error("Cleanup error:", err);
+
+      const now = Date.now();
+      for (const file of files) {
+        const filePath = path.join(pdfDir, file);
         fs.stat(filePath, (err, stats) => {
           if (err) return;
           const fileAge = now - stats.mtimeMs;

@@ -68,6 +68,13 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# uploaded files (backend)
+backend/src/assests/image/*
+backend/src/assests/pdf/*
+!backend/src/assests/image/.gitkeep
+!backend/src/assests/pdf/.gitkeep
 
 # vercel
 .vercel

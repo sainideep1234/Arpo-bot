@@ -1,5 +1,4 @@
-import { password } from "bun";
-import z, { email } from "zod";
+import z from "zod";
 
 export const SignupSchema = z.object({
   name: z.string(),
@@ -14,7 +13,6 @@ export const SigninSchema = z.object({
 export const MessageSchema = z.object({
   role: z.enum(["agent", "user", "developer"]),
   message: z.string().optional(),
-  imageUrl: z.string().optional(),
   messageType: z.enum(["image", "text"]),
 });
 
