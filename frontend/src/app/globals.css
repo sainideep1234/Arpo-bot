@@ -114,7 +114,7 @@
   }
 }
 
-/* ── Legacy CSS vars (for CSS module files) ── */
+/* ── Root variables ── */
 :root {
   --bg-primary: #0a0a0a;
   --bg-secondary: #111111;
@@ -158,7 +158,6 @@ body {
   background: var(--accent-dim);
   color: var(--accent);
 }
-
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -173,8 +172,7 @@ body {
   background: var(--border-light);
 }
 
-/* ── Utility Classes ── */
-
+/* ── Glass card ── */
 .glass-card {
   background: var(--glass);
   border: 1px solid var(--glass-border);
@@ -182,7 +180,7 @@ body {
   -webkit-backdrop-filter: blur(12px);
 }
 
-/* Input styling */
+/* ── Input styling ── */
 input,
 textarea {
   background: var(--bg-secondary);
@@ -196,19 +194,17 @@ textarea {
   width: 100%;
   font-family: inherit;
 }
-
 input:focus,
 textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
-
 input::placeholder,
 textarea::placeholder {
   color: var(--text-muted);
 }
 
-/* Button base */
+/* ── Button utilities ── */
 .btn-primary {
   background: var(--accent);
   color: #000;
@@ -222,17 +218,14 @@ textarea::placeholder {
   font-family: inherit;
   letter-spacing: 0.02em;
 }
-
 .btn-primary:hover {
   opacity: 0.9;
   transform: translateY(-1px);
   box-shadow: 0 4px 20px var(--accent-glow);
 }
-
 .btn-primary:active {
   transform: translateY(0);
 }
-
 .btn-primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -252,41 +245,15 @@ textarea::placeholder {
   transition: all 0.2s ease;
   font-family: inherit;
 }
-
 .btn-ghost:hover {
   border-color: var(--text-muted);
   color: var(--text-primary);
   background: var(--bg-hover);
 }
 
-/* ── Ambient glow for landing page ── */
-.ambient-glow {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.ambient-glow::before {
-  content: "";
-  position: absolute;
-  top: -20%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 800px;
-  height: 600px;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(6, 182, 212, 0.06) 0%,
-    transparent 70%
-  );
-  filter: blur(80px);
-}
-
 /* ── Hero gradient text ── */
 .text-gradient-hero {
-  background: linear-gradient(180deg, #ffffff 30%, #666666 100%);
+  background: linear-gradient(180deg, #ffffff 20%, #666666 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

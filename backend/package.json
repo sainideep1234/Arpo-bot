@@ -16,7 +16,9 @@
     "tsx": "^4.21.0"
   },
   "scripts": {
-    "dev": "bun src/index.ts"
+    "dev": "bun src/index.ts",
+    "build": "bun install",
+    "start": "bun src/index.ts"
   },
   "peerDependencies": {
     "typescript": "^5"
