@@ -9,17 +9,23 @@ const userSchema = new Schema({
   role: { type: String, enum: ["user", "admin"], default: "user" },
   thread_id: [{ type: Schema.Types.ObjectId, ref: "Threads" }],
 });
-const threadSchema = new Schema({
-  title: { type: String },
-  messages: [{ type: Schema.Types.ObjectId, ref: "Messages" }],
-  authors: [{ type: Schema.Types.ObjectId, ref: "Users" }],
-});
+const threadSchema = new Schema(
+  {
+    title: { type: String },
+    messages: [{ type: Schema.Types.ObjectId, ref: "Messages" }],
+    authors: [{ type: Schema.Types.ObjectId, ref: "Users" }],
+  },
+  { timestamps: true },
+);
 
-const messageSchema = new Schema({
-  message_description: { type: String },
-  role: { type: String, enum: ["agent", "user", "developer"] },
-  thread_id: { type: Schema.Types.ObjectId, ref: "Threads" },
-});
+const messageSchema = new Schema(
+  {
+    message_description: { type: String },
+    role: { type: String, enum: ["agent", "user", "developer"] },
+    thread_id: { type: Schema.Types.ObjectId, ref: "Threads" },
+  },
+  { timestamps: true },
+);
 
 export const Users = model("users", userSchema);
 export const Threads = model("threads", threadSchema);

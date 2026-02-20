@@ -1,9 +1,22 @@
 import { Router, type Request, type Response } from "express";
 import { MessageSchema } from "../utils/types";
-import { Messages } from "../models/db_models";
+import { Messages, Threads, Users } from "../models/db_models";
 import { vectorStore } from "../utils/vector";
 import { callLlm, describeImage } from "../utils/openai";
 import upload, { deleteFile } from "../utils/multer";
+import { authMiddleware } from "../utils/middleware";
+import rateLimit from 'express-rate-limit';
+
+
+const chatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 10 requests per windowMs
+  message: {
+    error: "Too many chat requests. To protect our LLM credits, please try again in 15 minutes."
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the deprecated `X-RateLimit-*` headers
+});
 
 const chatRouter = Router();
 
@@ -16,38 +29,91 @@ export interface RetrivedDocs {
   chunkIndex: number | null;
 }
 
-chatRouter.get("/chats", async (req: Request, res: Response) => {
-  try {
-    const messages = await Messages.find();
+// ─── Helper: Get or create a default thread for the user ───
+async function getOrCreateThread(userId: string) {
+  // Check if user already has a thread
+  const user = await Users.findById(userId);
+  if (user?.thread_id && user.thread_id.length > 0) {
+    const thread = await Threads.findById(user.thread_id[0]);
+    if (thread) return thread;
+  }
 
-    if (!messages) {
-      return res.status(500).json({
+  // Create a new default thread
+  const thread = await Threads.create({
+    title: "Default Chat",
+    messages: [],
+    authors: [userId],
+  });
+
+  // Link thread to user
+  await Users.findByIdAndUpdate(userId, {
+    $push: { thread_id: thread._id },
+  });
+
+  return thread;
+}
+
+// ─── GET /chats — Fetch previous messages for the logged-in user ───
+chatRouter.get(
+  "/chats",
+  authMiddleware,
+
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const thread = await getOrCreateThread(userId);
+
+      // Fetch all messages belonging to this thread, sorted by creation time
+      const messages = await Messages.find({ thread_id: thread._id }).sort({
+        createdAt: 1,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Messages fetched successfully",
+        data: {
+          messages: messages.map((m) => ({
+            _id: m._id,
+            role: m.role,
+            message_description: m.message_description,
+            createdAt: (m as any).createdAt,
+          })),
+          threadId: thread._id,
+        },
+      });
+    } catch (error) {
+      console.log("[ERROR]", error);
+      res.status(500).json({
         success: false,
-        message: "internal server error",
+        message: "Internal server error",
       });
     }
+  },
+);
 
-    return res.status(201).json({
-      success: true,
-      message: "Message received succefully",
-      data: {
-        messages,
-      },
-    });
-  } catch (error) {
-    console.log("[ERROR]", error);
-    res.status(500).json({
-      success: false,
-      message: "internal server error",
-    });
-  }
-});
-
+// ─── POST /chats — Send a message and get AI response ───
 chatRouter.post(
   "/chats",
+  authMiddleware,
+  chatLimiter,
   upload.single("image"),
   async (req: Request, res: Response) => {
     try {
+      const userId = req.userId;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
       const { success, data } = MessageSchema.safeParse(req.body);
       if (!success) {
         return res.status(401).json({
@@ -59,10 +125,19 @@ chatRouter.post(
       const { messageType, message, role } = data;
       const imagePath = req.file?.path;
 
-      // Step 1: Save the user's message to MongoDB
+      // Get or create the user's thread
+      const thread = await getOrCreateThread(userId);
+
+      // Step 1: Save the user's message to MongoDB (linked to thread)
       const saveUserMessage = await Messages.create({
         role,
         message_description: message,
+        thread_id: thread._id,
+      });
+
+      // Add message to thread
+      await Threads.findByIdAndUpdate(thread._id, {
+        $push: { messages: saveUserMessage._id },
       });
 
       // Step 2: Determine the search query for the vector store
@@ -128,10 +203,16 @@ chatRouter.post(
         });
       }
 
-      // Step 5: Save the agent's response to MongoDB
+      // Step 5: Save the agent's response to MongoDB (linked to thread)
       const saveAgentMessage = await Messages.create({
         role: "agent",
         message_description: llmResponse,
+        thread_id: thread._id,
+      });
+
+      // Add agent message to thread
+      await Threads.findByIdAndUpdate(thread._id, {
+        $push: { messages: saveAgentMessage._id },
       });
 
       // Step 6: Cleanup uploaded file

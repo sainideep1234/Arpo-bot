@@ -7,7 +7,7 @@ import chatRouter from "./routes/chatRoutes";
 import pineConeRouter from "./routes/pineconeRoutes";
 import { startCleanupScheduler } from "./utils/multer";
 import { connectToDb } from "./utils/db";
-import { log } from "node:console";
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;

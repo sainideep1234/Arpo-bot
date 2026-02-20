@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { sendMessage, type SourceDoc } from "@/lib/api";
+import { sendMessage, getMessages, type SourceDoc } from "@/lib/api";
 import styles from "./chat.module.css";
 
 interface Message {
@@ -21,6 +21,7 @@ export default function ChatPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const [showSources, setShowSources] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -33,9 +34,39 @@ export default function ChatPage() {
     const token = localStorage.getItem("arpo_token");
     if (!token) {
       router.replace("/auth");
+      return;
     }
     const role = localStorage.getItem("arpo_role");
     setIsAdmin(role === "admin");
+
+    // Load previous chat history from MongoDB
+    async function loadChatHistory() {
+      try {
+        const res = await getMessages();
+        if (res.success && res.data?.messages?.length > 0) {
+          const history: Message[] = res.data.messages.map(
+            (m: {
+              _id: string;
+              role: string;
+              message_description: string;
+              createdAt: string;
+            }) => ({
+              id: m._id,
+              role: m.role as "user" | "agent",
+              content: m.message_description || "",
+              timestamp: new Date(m.createdAt),
+            }),
+          );
+          setMessages(history);
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      } finally {
+        setLoadingHistory(false);
+      }
+    }
+
+    loadChatHistory();
   }, [router]);
 
   useEffect(() => {
@@ -311,7 +342,26 @@ export default function ChatPage() {
       <main className={styles.main} onPaste={handlePaste}>
         {/* Messages */}
         <div className={styles.messagesContainer}>
-          {messages.length === 0 ? (
+          {loadingHistory ? (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon} style={{ opacity: 0.5 }}>
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ animation: "spin 1s linear infinite" }}
+                >
+                  <path d="M21 12a9 9 0 11-6.219-8.56" />
+                </svg>
+              </div>
+              <p className={styles.emptyDesc}>Loading chat history...</p>
+            </div>
+          ) : messages.length === 0 ? (
             <div className={styles.emptyState}>
               <div className={styles.emptyIcon}>
                 <svg
