@@ -1,70 +1,9 @@
+// ===== API Helper — Simple Version =====
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data?: T;
-}
+// ── Types (used by other files) ──
 
-async function request<T>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<ApiResponse<T>> {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("arpo_token") : null;
-
-  const headers: Record<string, string> = {
-    ...(options.headers as Record<string, string>),
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  // Don't set Content-Type for FormData (browser sets it with boundary)
-  if (!(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  const json = await res.json();
-  return json;
-}
-
-// Auth
-export interface AuthData {
-  token: string;
-  role: "user" | "admin";
-  name: string;
-}
-
-export async function signUp(name: string, email: string, password: string) {
-  return request<AuthData>("/api/v1/signup", {
-    method: "POST",
-    body: JSON.stringify({ name, email, password }),
-  });
-}
-
-export async function signIn(email: string, password: string) {
-  return request<AuthData>("/api/v1/signin", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-// Admin Auth
-export async function adminSignIn(email: string, password: string) {
-  return request<AuthData>("/api/v1/admin/signin", {
-    method: "POST",
-    body: JSON.stringify({ email, password }),
-  });
-}
-
-// Chat
 export interface SourceDoc {
   confidenceScore: string;
   content: string;
@@ -74,48 +13,6 @@ export interface SourceDoc {
   chunkIndex: number | null;
 }
 
-export interface ChatResponse {
-  userMessage: unknown;
-  agentMessage: unknown;
-  response: string;
-  sources: SourceDoc[];
-}
-
-export async function sendMessage(
-  message: string,
-  role: string = "user",
-  imageFile?: File,
-) {
-  if (imageFile) {
-    const formData = new FormData();
-    formData.append("image", imageFile);
-    formData.append("message", message);
-    formData.append("messageType", "image");
-    formData.append("role", role);
-
-    return request<ChatResponse>("/api/v1/chats", {
-      method: "POST",
-      body: formData,
-    });
-  }
-
-  return request<ChatResponse>("/api/v1/chats", {
-    method: "POST",
-    body: JSON.stringify({
-      message,
-      messageType: "text",
-      role,
-    }),
-  });
-}
-
-export async function getMessages() {
-  return request<{ messages: unknown[] }>("/api/v1/chats", {
-    method: "GET",
-  });
-}
-
-// Admin — PDF upload (supports multiple files)
 export interface PdfUploadResult {
   totalChunks: number;
   files: Array<{
@@ -126,19 +23,103 @@ export interface PdfUploadResult {
   }>;
 }
 
+// ── Auth ──
+
+export async function signUp(name: string, email: string, password: string) {
+  const res = await fetch(API_BASE + "/api/v1/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password }),
+  });
+  return res.json();
+}
+
+export async function signIn(email: string, password: string) {
+  const res = await fetch(API_BASE + "/api/v1/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return res.json();
+}
+
+export async function adminSignIn(email: string, password: string) {
+  const res = await fetch(API_BASE + "/api/v1/admin/signin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return res.json();
+}
+
+// ── Chat ──
+
+export async function sendMessage(
+  message: string,
+  role: string = "user",
+  imageFile?: File,
+) {
+  const token = localStorage.getItem("arpo_token");
+
+  // If there's an image, send as FormData (multipart)
+  if (imageFile) {
+    const formData = new FormData();
+    formData.append("image", imageFile);
+    formData.append("message", message);
+    formData.append("messageType", "image");
+    formData.append("role", role);
+
+    const res = await fetch(API_BASE + "/api/v1/chats", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        // No Content-Type here — browser sets it for FormData
+      },
+      body: formData,
+    });
+    return res.json();
+  }
+
+  // Normal text message
+  const res = await fetch(API_BASE + "/api/v1/chats", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ message, messageType: "text", role }),
+  });
+  return res.json();
+}
+
+export async function getMessages() {
+  const token = localStorage.getItem("arpo_token");
+
+  const res = await fetch(API_BASE + "/api/v1/chats", {
+    method: "GET",
+    headers: {
+      Authorization: "Bearer " + token,
+    },
+  });
+  return res.json();
+}
+
+// ── Admin — PDF Upload ──
+
 export async function uploadPdfs(files: File[]) {
+  const token = localStorage.getItem("arpo_token");
   const formData = new FormData();
   for (const file of files) {
     formData.append("pdfFiles", file);
   }
 
-  return request<PdfUploadResult>("/api/v1/pinecone/pdf", {
+  const res = await fetch(API_BASE + "/api/v1/pinecone/pdf", {
     method: "POST",
+    headers: {
+      Authorization: "Bearer " + token,
+      // No Content-Type here — browser sets it for FormData
+    },
     body: formData,
   });
-}
-
-// Keep backward compat for single file
-export async function uploadPdf(file: File) {
-  return uploadPdfs([file]);
+  return res.json();
 }
