@@ -94,10 +94,10 @@ chatRouter.post(
         searchQuery = message;
       }
 
-      // Step 3: Vector similarity search in Pinecone
+      // Step 3: Vector similarity search in Pinecone (fetch 8 for better coverage)
       const retrivedDocs: RetrivedDocs[] = [];
       const similaritySearchWithScoreResults =
-        await vectorStore.similaritySearchWithScore(searchQuery, 5);
+        await vectorStore.similaritySearchWithScore(searchQuery, 8);
 
       for (const [doc, score] of similaritySearchWithScoreResults) {
         console.log(
