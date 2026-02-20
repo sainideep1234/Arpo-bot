@@ -8,14 +8,32 @@ import pineConeRouter from "./routes/pineconeRoutes";
 import { startCleanupScheduler } from "./utils/multer";
 import { connectToDb } from "./utils/db";
 
-
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Connect to Database
 connectToDb();
 
-app.use(cors());
+// CORS — only allow requests from known frontend origins
+const allowedOrigins = [
+  process.env.LOCAL_FRONTEND_URL,
+  process.env.PROD_FRONTEND_URL,
+].filter(Boolean) as string[];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    methods: ["GET", "POST"],
+    credentials: true,
+  }),
+);
 app.use(express.json());
 console.log("[INFO ] routes are ready ");
 
