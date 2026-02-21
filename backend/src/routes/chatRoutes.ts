@@ -5,14 +5,14 @@ import { vectorStore } from "../utils/vector";
 import { callLlm, describeImage } from "../utils/openai";
 import upload, { deleteFile } from "../utils/multer";
 import { authMiddleware } from "../utils/middleware";
-import rateLimit from 'express-rate-limit';
-
+import rateLimit from "express-rate-limit";
 
 const chatLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10, // Limit each IP to 10 requests per windowMs
   message: {
-    error: "Too many chat requests. To protect our LLM credits, please try again in 15 minutes."
+    error:
+      "Too many chat requests. To protect our LLM credits, please try again in 15 minutes.",
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the deprecated `X-RateLimit-*` headers
@@ -101,8 +101,8 @@ chatRouter.get(
 // ─── POST /chats — Send a message and get AI response ───
 chatRouter.post(
   "/chats",
-  authMiddleware,
   chatLimiter,
+  authMiddleware,
   upload.single("image"),
   async (req: Request, res: Response) => {
     try {
