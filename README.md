@@ -16,20 +16,13 @@
 
    Tech: Metadata filtering in your Vector DB.
 
-2. "Visual Badge Identity" (The Alpha Feature)
 
-   The Pain: A student finds an old patch in the cupboard. "What is this badge?"
-
-   The Feature: User uploads a photo of the badge -> Bot identifies it -> Bot pulls the specific requirements to earn it.
-
-   Tech: This uses the Vision capabilities of your LLM (e.g., GPT-4o or Gemini 1.5 Flash).
-
-3. The "Syllabus Tracker"
+2. The "Syllabus Tracker"
    The Pain: The syllabus is confusing. "I just finished Tritiya Sopan. What exactly is left for Rajya Puraskar?"
 
    The Feature: A strictly ordered checklist generated from the APRO PDFs.
 
-4. Hinglish Support
+3. Hinglish Support
 
    The Pain: Most Scouting happens in Hindi/Regional languages, but the rulebooks are dense English.
 
@@ -47,6 +40,13 @@
 - can need to update your code .
 - create a endpoint to create new thread.
 - create user signin and signup
+- 2. "Visual Badge Identity" (The Alpha Feature)
+
+   The Pain: A student finds an old patch in the cupboard. "What is this badge?"
+
+   The Feature: User uploads a photo of the badge -> Bot identifies it -> Bot pulls the specific requirements to earn it.
+
+   Tech: This uses the Vision capabilities of your LLM (e.g., GPT-4o or Gemini 1.5 Flash).
 
 
 
