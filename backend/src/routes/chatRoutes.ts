@@ -8,7 +8,7 @@ import { authMiddleware } from "../utils/middleware";
 import rateLimit from "express-rate-limit";
 
 const chatLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 24 * 60 * 60 * 1000, //  24 hours
   max: 10, // Limit each IP to 10 requests per windowMs
   message: {
     error:
