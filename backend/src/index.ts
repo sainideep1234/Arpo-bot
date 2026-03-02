@@ -42,8 +42,9 @@ app.use("/api/v1", chatRouter);
 app.use("/api/v1/pinecone", pineConeRouter);
 
 app.get("/health", (req: Request, res: Response) => {
-  res.status(201).json({
-    message: "verything working fine",
+  res.status(200).json({
+    status: "ok",
+    message: "Everything is working fine",
   });
 });
 
