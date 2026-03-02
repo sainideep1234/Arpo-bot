@@ -2,7 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { sendMessage, getMessages, type SourceDoc } from "@/lib/api";
+import {
+  sendMessage,
+  getMessages,
+  getLimitStatus,
+  type SourceDoc,
+} from "@/lib/api";
 import styles from "./chat.module.css";
 
 interface Message {
@@ -25,6 +30,7 @@ export default function ChatPage() {
   const [showSources, setShowSources] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [usage, setUsage] = useState<any>({ remaining: 5, limit: 5 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -66,7 +72,19 @@ export default function ChatPage() {
       }
     }
 
+    async function loadLimit() {
+      try {
+        const res = await getLimitStatus();
+        if (res.success) {
+          setUsage(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load limit status:", err);
+      }
+    }
+
     loadChatHistory();
+    loadLimit();
   }, [router]);
 
   useEffect(() => {
@@ -188,11 +206,18 @@ export default function ChatPage() {
       };
 
       setMessages((prev) => [...prev, agentMsg]);
-    } catch {
+
+      // Refresh limit status
+      const limitRes = await getLimitStatus();
+      if (limitRes.success) setUsage(limitRes.data);
+    } catch (err: any) {
+      // If error is 429 (Rate Limit), use the message from server
       const errorMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "agent",
-        content: "Failed to connect to the server. Please try again.",
+        content:
+          err?.message ||
+          "Failed to connect. You might have reached your limit.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -316,6 +341,33 @@ export default function ChatPage() {
             Admin Panel
           </button>
         )}
+
+        {/* ─── Usage Tracker ─── */}
+        <div className={styles.usageTracker}>
+          <div className={styles.usageHeader}>
+            <span className={styles.usageTitle}>Monthly Usage</span>
+            <span className={styles.usageValues}>
+              {usage.remaining === "Unlimited" ? "∞" : usage.remaining} /{" "}
+              {usage.limit === "Unlimited" ? "∞" : usage.limit}
+            </span>
+          </div>
+          <div className={styles.usageBarBg}>
+            <div
+              className={styles.usageBarFill}
+              style={{
+                width:
+                  usage.limit === "Unlimited"
+                    ? "100%"
+                    : `${(Math.max(0, parseInt(usage.remaining || "0")) / 5) * 100}%`,
+              }}
+            />
+          </div>
+          <p className={styles.usageNote}>
+            {isAdmin
+              ? "Admin Account: Unlimited access"
+              : `Your limits refill every hour`}
+          </p>
+        </div>
 
         <div className={styles.sidebarFooter}>
           <button className={styles.logoutBtn} onClick={handleLogout}>

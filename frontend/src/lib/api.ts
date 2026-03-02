@@ -104,6 +104,18 @@ export async function getMessages() {
   return res.json();
 }
 
+export async function getLimitStatus() {
+  const token = localStorage.getItem("arpo_token");
+
+  const res = await fetch(API_BASE + "/api/v1/limit-status", {
+    method: "GET",
+    headers: {
+      Authorization: "Bearer " + token,
+    },
+  });
+  return res.json();
+}
+
 // ── Admin — PDF Upload ──
 
 export async function uploadPdfs(files: File[]) {

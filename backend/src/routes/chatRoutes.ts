@@ -7,14 +7,33 @@ import upload, { deleteFile } from "../utils/multer";
 import { authMiddleware } from "../utils/middleware";
 import rateLimit from "express-rate-limit";
 
+// Rate limiters work best when they know the user.
+// We will use the userId as the key and check the role for the limit.
 const chatLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 50, // Limit each IP to 50 requests per windowMs
-  message: {
-    error: "Too many chat requests. Please try again in an hour.",
+  limit: (req: any) => {
+    // Admins get 1000 requests, regular users get 5
+    if (req.userRole === "admin") return 1000;
+    return 5;
   },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the deprecated `X-RateLimit-*` headers
+  // Use the userId from authMiddleware as the unique key
+  keyGenerator: (req: any) => req.userId || req.ip,
+  handler: (req: any, res: Response) => {
+    const resetTime = req.rateLimit.resetTime;
+    const minutesLeft = Math.ceil(
+      (new Date(resetTime).getTime() - Date.now()) / 60000,
+    );
+
+    res.status(429).json({
+      success: false,
+      message: `You have reached your limit of 5 questions per hour.`,
+      limit: 5,
+      remaining: 0,
+      refillIn: `${minutesLeft} minutes`,
+    });
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const chatRouter = Router();
@@ -97,11 +116,27 @@ chatRouter.get(
   },
 );
 
+// ─── GET /limit-status — Get current user's remaining questions ───
+chatRouter.get("/limit-status", authMiddleware, (req: any, res: Response) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      role: req.userRole,
+      // Since this route doesn't use the limiter middleware, we just show the rules
+      limit: req.userRole === "admin" ? "Unlimited" : 5,
+      remaining:
+        req.userRole === "admin"
+          ? "Unlimited"
+          : req.headers["x-ratelimit-remaining"] || "Check headers",
+    },
+  });
+});
+
 // ─── POST /chats — Send a message and get AI response ───
 chatRouter.post(
   "/chats",
-  chatLimiter,
-  authMiddleware,
+  authMiddleware, // First authenticate to get userId/role
+  chatLimiter, // Then apply the dynamic rate limit
   upload.single("image"),
   async (req: Request, res: Response) => {
     try {
