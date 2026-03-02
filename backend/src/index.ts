@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express from "express";
+import express, { type Request, type Response } from "express";
 import cors from "cors";
 
 import userRouter from "./routes/userRoutes";
@@ -40,6 +40,12 @@ console.log("[INFO ] routes are ready ");
 app.use("/api/v1", userRouter);
 app.use("/api/v1", chatRouter);
 app.use("/api/v1/pinecone", pineConeRouter);
+
+app.get("/health", (req: Request, res: Response) => {
+  res.status(201).json({
+    message: "verything working fine",
+  });
+});
 
 // Start cleanup scheduler for uploaded files
 startCleanupScheduler();
