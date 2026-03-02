@@ -8,11 +8,10 @@ import { authMiddleware } from "../utils/middleware";
 import rateLimit from "express-rate-limit";
 
 const chatLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, //  24 hours
-  max: 10, // Limit each IP to 10 requests per windowMs
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50, // Limit each IP to 50 requests per windowMs
   message: {
-    error:
-      "Too many chat requests. To protect our LLM credits, please try again in 15 minutes.",
+    error: "Too many chat requests. Please try again in an hour.",
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the deprecated `X-RateLimit-*` headers
@@ -188,11 +187,25 @@ chatRouter.post(
         });
       }
 
-      // Step 4: Call the LLM with retrieved context + user query (+ image if present)
+      // Step 4: Fetch conversation history (last 5 messages) to provide context
+      const previousMessages = await Messages.find({ thread_id: thread._id })
+        .sort({ createdAt: -1 })
+        .skip(1) // skip the message we just saved
+        .limit(6);
+
+      const history = previousMessages.reverse().map((m) => ({
+        role: (m.role === "agent" ? "assistant" : "user") as
+          | "assistant"
+          | "user",
+        content: m.message_description || "",
+      }));
+
+      // Step 5: Call the LLM with retrieved context + history + user query
       const llmResponse = await callLlm({
         retrivedDocs,
         query: message || searchQuery,
         role: "user",
+        history,
         ...(messageType === "image" && imagePath && { imageUrl: imagePath }),
       });
 

@@ -9,6 +9,37 @@ const openai = new OpenAI({
   baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
 });
 
+// ─── Retry Helper for 429s ───
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelay = 2000,
+): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      // 429 is Rate Limit, 503/504 are temporary service issues
+      if (
+        error?.status === 429 ||
+        error?.status === 503 ||
+        error?.status === 504
+      ) {
+        const delay = baseDelay * Math.pow(2, i);
+        console.warn(
+          `[WARN] Gemini Rate Limit hit (429). Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 function getMimeType(filePath: string): string {
   const ext = path.extname(filePath).toLowerCase();
   const mimeMap: Record<string, string> = {
@@ -38,6 +69,7 @@ interface CallLlmInterface {
   imageUrl?: string;
   role: "agent" | "user";
   query: string;
+  history?: { role: "user" | "assistant" | "system"; content: string }[];
 }
 
 function formatContext(docs: RetrivedDocs[]): string {
@@ -62,53 +94,30 @@ function formatContext(docs: RetrivedDocs[]): string {
 //   4. Hinglish / Hindi Support
 // ═══════════════════════════════════════════════════════════════
 
-const SYSTEM_PROMPT_TEMPLATE = `You are ARPO, the official Scout & Guide AI assistant for Bharat Scouts and Guides (BSG India). You are a knowledge-base assistant that ONLY answers based on the APRO documents, rulebooks, and manuals uploaded to the system.
+const SYSTEM_PROMPT_TEMPLATE = `You are ARPO, the official Scout & Guide AI assistant for Bharat Scouts and Guides (BSG India). You ONLY answer based on the uploaded documents.
 
-⚠️ CRITICAL — LANGUAGE RULE (HIGHEST PRIORITY) ⚠️
-- ALWAYS respond in HINGLISH ONLY. This is your default and primary language.
-- DO NOT write any Hindi, Devanagari, or bilingual content in your response.
-- DO NOT add a Hindi translation or summary. DO NOT prefix with "English:" or "Hindi:".
-- If the user writes in Hinglish like "Rajya puraskar ke liye kya chahiye?", respond ENTIRELY in English.
-- ONLY respond in Hindi if the user explicitly says "answer in Hindi" or "Hindi mein batao".
-- This rule overrides everything else. NEVER mix languages. ONE language per response.
+⚠️ LANGUAGE RULE ⚠️
+- ALWAYS respond in HINGLISH ONLY (English script, but conversational Hindi/English mix).
+- No Devanagari script. No dual translations.
+- ONLY use pure Hindi if explicitly requested.
 
 ═══ CORE IDENTITY ═══
-- You are the authoritative digital reference for all BSG India rules, award requirements, badge requirements, progression syllabus, and organizational procedures.
-- You settle disputes by citing exact clauses, pages, and source files.
-- You NEVER use general knowledge. You ONLY use the uploaded documents.
+- Authoritative reference for BSG India rules, awards, and syllabus.
+- Solve disputes by citing exact clauses/pages from context.
+- If info is missing from context, say: "I could not find this in the uploaded books. Please upload relevant APRO book."
 
-═══ RULES ═══
-
-RULE 1: CONTEXT ONLY — NO OUTSIDE KNOWLEDGE
-- You MUST NOT use any general knowledge, training data, or outside information.
-- Every statement must come directly from the retrieved documents below.
-- If the topic is not in the uploaded books, refuse politely.
-
-RULE 2: ALWAYS CITE EXACT SOURCES
-- For every factual statement, cite: [Source: <filename>, Page <number>, Clause <number>]
-- When settling disputes, provide the EXACT text from the document.
-
-RULE 3: VISUAL BADGE IDENTIFICATION
-- When a user uploads a badge image: identify it, then list EXACT requirements to earn it from the context.
-
-RULE 4: SYLLABUS TRACKER — ORDERED CHECKLISTS
-- For progression/syllabus questions, generate ordered checklists grouped by category.
-- Use for pending,  for completed. Include source citations.
-
-RULE 5: REFUSE UNKNOWN TOPICS
-- If the context does NOT contain the answer: "I could not find information about this in the uploaded documents. Please upload the relevant APRO book."
-
- RULE 6: FORMATTING
-- Use headings (##), bullet points, numbered lists, and bold for key terms.
-- Keep responses clean, structured, and easy to read.
-
-REMINDER: Respond in ENGLISH ONLY. No Hindi. No bilingual. No Devanagari script.`;
+═══ OPERATIONAL RULES ═══
+1. CITE SOURCES: Every factual statement must end with [Source: filename, Page X].
+2. SYLLABUS: For requirements, provide ordered checklists with  for pending and  for completed.
+3. VISUALS: If an image is provided, identify it using context and list its requirements.
+4. NO OUTSIDE KNOWLEDGE: Only use the provided context below.`;
 
 export async function callLlm({
   imageUrl,
   retrivedDocs,
   role,
   query,
+  history,
 }: CallLlmInterface) {
   const context = formatContext(retrivedDocs);
 
@@ -122,6 +131,16 @@ export async function callLlm({
       content: systemContent,
     },
   ];
+
+  // Add conversation history if available
+  if (history && history.length > 0) {
+    history.forEach((msg) => {
+      messages.push({
+        role: msg.role === "assistant" ? "assistant" : "user",
+        content: msg.content,
+      });
+    });
+  }
 
   if (imageUrl) {
     const base64Image = await encodeImage(imageUrl);
@@ -151,15 +170,21 @@ export async function callLlm({
   }
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages,
+    const reply = await withRetry(async () => {
+      const response = await openai.chat.completions.create({
+        model: "gemini-2.0-flash",
+        messages,
+      });
+      return response.choices[0]?.message?.content ?? "";
     });
 
-    const reply = response.choices[0]?.message?.content ?? "";
     console.log("LLM Response:", reply.slice(0, 200) + "...");
     return reply;
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.status === 429) {
+      console.error("Gemini API Rate Limit exceeded after retries.");
+      return "Rate limit exceeded. Please try again in 1 minute.";
+    }
     console.error("Error calling Gemini API:", error);
     return null;
   }
@@ -176,35 +201,30 @@ export async function describeImage(imagePath: string): Promise<string | null> {
   if (!base64Image) return null;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gemini-2.0-flash",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text" as const,
-              text: `Analyze this image carefully and describe it for searching a Bharat Scouts and Guides (BSG India) knowledge base.
-
-Focus on:
-1. **If this is a BADGE, PATCH, or EMBLEM:** Describe the badge name, its shape (circular, triangular, shield, etc.), colors, any symbols (fleur-de-lis, trefoil, animals, knots, tools), and any text/numbers written on it. Use terms like "proficiency badge", "merit badge", "sopan badge", "Rajya Puraskar", "Rashtrapati Award", "Tritiya Sopan", "Dwitiya Sopan", "Pratham Sopan", etc.
-2. **If this is a DOCUMENT or CERTIFICATE:** Read and transcribe any visible text, headings, clause numbers, or section references.
-3. **If this is a SCOUTING ACTIVITY:** Describe the activity (camping, knot-tying, flag ceremony, march past, etc.) with specific scouting terminology.
-
-Be precise and use official BSG/Scouting terminology. This description will be used to search APRO rulebooks for matching information.`,
-            },
-            {
-              type: "image_url" as const,
-              image_url: {
-                url: `data:${getMimeType(imagePath)};base64,${base64Image}`,
+    const description = await withRetry(async () => {
+      const response = await openai.chat.completions.create({
+        model: "gemini-2.0-flash",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text" as const,
+                text: `Analyze this BSG (Scout/Guide) badge or document. Describe its visual elements (colors, symbols, text) concisely for a vector search. Focus on identifying the exact name or category of the badge.`,
               },
-            },
-          ],
-        },
-      ],
+              {
+                type: "image_url" as const,
+                image_url: {
+                  url: `data:${getMimeType(imagePath)};base64,${base64Image}`,
+                },
+              },
+            ],
+          },
+        ],
+      });
+      return response.choices[0]?.message?.content ?? null;
     });
 
-    const description = response.choices[0]?.message?.content ?? null;
     console.log("Image Description:", description);
     return description;
   } catch (error) {
