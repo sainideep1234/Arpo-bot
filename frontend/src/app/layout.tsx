@@ -13,8 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ARPO Bot — Scout Master AI",
-  description: "AI-powered scout knowledge assistant with RAG",
+  title: "ARPO — Master the Art of Modern Scouting",
+  description:
+    "AI-powered scout knowledge assistant for Bharat Scouts & Guides",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
