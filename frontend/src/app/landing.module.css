@@ -234,17 +234,26 @@
   max-width: 850px;
   animation: slideUp 0.5s ease-out 0.1s forwards;
   opacity: 0;
-  /* Move glow to the title container to prevent Chrome clip bug */
-  text-shadow: 0 0 30px rgba(6, 182, 212, 0.15);
+  /* Tells Chrome not to try to "auto-darken" this text */
+  color-scheme: dark;
+  isolation: isolate;
 }
 
 .heroGradientText {
-  background: linear-gradient(180deg, #ffffff 40%, #ffffff 100%);
+  /* Restore your favorite premium gradient */
+  background: linear-gradient(180deg, #ffffff 35%, #888888 100%);
   -webkit-background-clip: text;
   background-clip: text;
+  /* Essential for visibility in Chrome with Dark Mode on */
   -webkit-text-fill-color: transparent;
-  display: inline-block; /* Helps Chrome with clipping */
+  color: transparent;
+
+  display: inline-block;
   width: 100%;
+
+  /* Fix for the "ghostly" blur in Chrome */
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 .heroDesc {
