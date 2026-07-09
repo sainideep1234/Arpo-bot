@@ -1,53 +1,66 @@
+# ARPO Bot
+
+AI assistant for **Bharat Scouts & Guides (BSG India)**. Answers scouting questions from official APRO documents with page citations, Hinglish support, syllabus checklists, and badge photo identification.
+
+## Features
+
+- **Citations** — Answers grounded in APRO PDFs with source file and page number
+- **Syllabus tracker** — Ordered requirements from Pratham Sopan to Rajya Puraskar
+- **Hinglish** — Ask in Hinglish, get structured responses
+- **Badge ID** — Upload a badge photo; bot identifies it and pulls requirements
+- **Admin panel** — Upload and index APRO PDFs into Pinecone
+
+## Tech Stack
+
+Next.js · React · Tailwind · Bun · Express · MongoDB · Pinecone · LangChain · Gemini 2.0 Flash
+
+## How It Works
+
+**Text:** Question → embed → Pinecone search → Gemini + PDF context → cited answer
+
+**Image:** Badge photo → Gemini describes it → text search in Pinecone → Gemini (image + context) → answer. Images are not stored in Pinecone — only PDF text is indexed.
+
+## Setup
+
+**Prerequisites:** Bun, Node.js 18+, MongoDB, Pinecone index (768 dims), Google AI API key
+
+```bash
+# Backend
+cd backend && bun install && cp .env.example .env
+# Fill in .env, then:
+bun run dev          # http://localhost:3001
+
+# Frontend
+cd frontend && npm install && cp .env.example .env.local
+# Set NEXT_PUBLIC_API_URL=http://localhost:3001, then:
+npm run dev          # http://localhost:3000
+```
+
+See `.env.example` in each folder for all required variables.
+
+**Index documents:** Sign in at `/admin/auth`, upload APRO PDFs. The bot needs indexed docs to answer questions.
+
+## API
+
+Base: `http://localhost:3001/api/v1`
+
+| Endpoint | Auth | Description |
+|---|---|---|
+| `POST /signup`, `/signin` | — | User auth |
+| `POST /admin/signin` | — | Admin auth |
+| `GET /chats` | JWT | Chat history |
+| `POST /chats` | JWT | Text or image message |
+| `POST /pinecone/pdf` | Admin | Index PDFs |
+
+Health: `GET /health`
+
+## Example Questions
+
+- *"Rajya puraskar ke liye camping requirements kya hain?"*
+- *"I finished Tritiya Sopan — what's left for Rajya Puraskar?"*
+- *"How does one become a Rashtrapati Scout/Guide?"*
+- Upload a badge photo: *"What is this badge?"*
+
 ---
-## Questuions Sample 
-1. I just finished Tritiya Sopan. What exactly is left for Rajya Puraskar?
-2. Rajya puraskar ke liye camping requirements kya hain?
-3. How does one become a Rashtrapati Scout/Guide?
-4. How many camping nights are required for these top awards?
-5. How can an adult leader become a Himalaya Wood Badge (HWB) holder?
----
 
-## v1 PROPOSAL
-
-1. The "Dispute Settler" (Citation Engine) The Pain:
-   A Scout Master claims, "You need 5 nights of camping for Rajya Puraskar." The student thinks it's 3.
-
-   The Feature: The bot must answer: "The requirement is 3 nights. (Source: APRO Part II, Page 45, Clause 14)."
-
-   Tech: Metadata filtering in your Vector DB.
-
-
-2. The "Syllabus Tracker"
-   The Pain: The syllabus is confusing. "I just finished Tritiya Sopan. What exactly is left for Rajya Puraskar?"
-
-   The Feature: A strictly ordered checklist generated from the APRO PDFs.
-
-3. Hinglish Support
-
-   The Pain: Most Scouting happens in Hindi/Regional languages, but the rulebooks are dense English.
-
-   The Feature: Allow users to ask in Hinglish ("Rajya puraskar ke liye camping requirements kya hain?") and get a structured English/Hindi response.
-
---
-
-## v1 functionality
-
-- no R2(object store is used ) instead multer si used to upload photos directly to server and delete after some time .
-
-## v2 proposal
-
-- create a pattern/class object oriented programing to btter arra nge my code .
-- can need to update your code .
-- create a endpoint to create new thread.
-- create user signin and signup
-- 2. "Visual Badge Identity" (The Alpha Feature)
-
-   The Pain: A student finds an old patch in the cupboard. "What is this badge?"
-
-   The Feature: User uploads a photo of the badge -> Bot identifies it -> Bot pulls the specific requirements to earn it.
-
-   Tech: This uses the Vision capabilities of your LLM (e.g., GPT-4o or Gemini 1.5 Flash).
-
-
-
----
+Built for **Bharat Scouts & Guides**. Private project.
